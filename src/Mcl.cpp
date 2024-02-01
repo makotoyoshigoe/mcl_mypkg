@@ -19,21 +19,21 @@ Mcl::~Mcl(){}
 void Mcl::initParticles(float init_x, float init_y, float init_t, float init_w)
 {
     for(auto &p : particles_){
-        p.setPose(init_x, init_y, init_t);
-        p.setWeight(init_w);
+        p.x_ = init_x;
+        p.y_ = init_y;
+        p.t_ = init_t;
+        p.w_ = init_w;
     }
 }
 
 void Mcl::particles2PoseArray(geometry_msgs::msg::PoseArray &pose_array)
 {
     for(auto &p : particles_){
-        float x, y, t;
-        p.getPose(x, y, t);
         geometry_msgs::msg::Pose pose;
-        pose.position.x = x;
-        pose.position.y = y;
+        pose.position.x = p.x_;
+        pose.position.y = p.y_;
         tf2::Quaternion q;
-        q.setRPY(0., 0., t);
+        q.setRPY(0., 0., p.t_);
         tf2::convert(q, pose.orientation);
         pose_array.poses.push_back(pose);
     }
@@ -41,12 +41,10 @@ void Mcl::particles2PoseArray(geometry_msgs::msg::PoseArray &pose_array)
 
 void Mcl::meanParticles(float &mean_x, float &mean_y, float &mean_t)
 {
-    float x, y, t;
     for(auto &p : particles_){
-        p.getPose(x, y, t);
-        mean_x += x;
-        mean_y += y;
-        mean_t += t;
+        mean_x += p.x_;
+        mean_y += p.y_;
+        mean_t += p.t_;
     }
     mean_x /= particle_num_;
     mean_y /= particle_num_;

@@ -4,7 +4,6 @@
 #ifndef MCL__MCL_HPP_
 #define MCL__MCL_HPP_
 
-#include "mcl_mypkg/Particle.hpp"
 #include <vector>
 #include <geometry_msgs/msg/pose_array.hpp>
 
@@ -13,8 +12,15 @@ namespace Mcl
 class Mcl
 {
     private:
-        std::vector<Particle> particles_;
+        
         int particle_num_;
+        struct Particle{
+            float x_;
+            float y_;
+            float t_;
+            float w_;
+        };
+        std::vector<Particle> particles_;
 
     public:
         Mcl(int particle_num);

@@ -16,7 +16,6 @@ ament_auto_find_build_dependencies()
 
 ament_auto_add_executable(mcl_node
   src/LikelihoodFieldMap.cpp
-  src/Particle.cpp
   src/Mcl.cpp
   src/mcl_node.cpp
 )
