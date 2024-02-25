@@ -64,7 +64,11 @@ float LikelihoodFieldMap::getLikelihood(float x, float y)
     }
 }
 
-int LikelihoodFieldMap::xy2index(float x, float y){ return static_cast<int>(x / resolution_ + width_ *  y / resolution_); }
+int LikelihoodFieldMap::xy2index(float x, float y)
+{
+    double ix = x / resolution_, iy = y / resolution_;
+    return ix + width_ * iy;
+}
 
 nav_msgs::msg::OccupancyGrid LikelihoodFieldMap::getLikelihoodFieldMap(){ return likelihood_map_; }
 

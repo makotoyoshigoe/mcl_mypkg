@@ -14,20 +14,25 @@ namespace Mcl
 {
 MclNode::MclNode() : Node("mcl_node")
 {
-    initParam();
+    
     initVariable();
     initPubSub();
+    initParam();
 }
 
 MclNode::~MclNode(){}
 
 void MclNode::initPubSub()
 {
-    map_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>("map", 2, std::bind(&MclNode::mapCb, this, std::placeholders::_1));
-    initialpose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 2, std::bind(&MclNode::initialposeCb, this, std::placeholders::_1));
+    map_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+        "map", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable(), std::bind(&MclNode::mapCb, this, std::placeholders::_1));
+    initialpose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "initialpose", 2, std::bind(&MclNode::initialposeCb, this, std::placeholders::_1));
 
-    likelihood_map_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("map/likelihood", rclcpp::QoS(10));
-    particles_pub_  = this->create_publisher<geometry_msgs::msg::PoseArray>("particles", rclcpp::QoS(10));
+    likelihood_map_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
+        "map/likelihood", rclcpp::QoS(10));
+    particles_pub_  = this->create_publisher<geometry_msgs::msg::PoseArray>(
+        "particles", rclcpp::QoS(10));
 }
 
 void MclNode::initParam()
@@ -36,13 +41,25 @@ void MclNode::initParam()
     this->get_parameter("likelihood_range", likelihood_range_);
     this->declare_parameter("particle_num", 1000);
     this->get_parameter("particle_num", particle_num_);
+    this->declare_parameter("motion_noises", std::vector<double>(4, 0.0));
+    std::vector<double> motion_noises;
+    this->get_parameter("motion_noises", motion_noises);
+    mcl_.reset(new Mcl(particle_num_, motion_noises));
 }
 
 void MclNode::initVariable()
 {
     init_map_ = false;
     init_mcl_ = false;
-    mcl_.reset(new Mcl(particle_num_));
+    
+    tf_broadcaster_.reset();
+    tf_buffer_.reset();
+
+	tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+	auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+        get_node_base_interface(), get_node_timers_interface(),
+	    create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false));
+	tf_buffer_->setCreateTimerInterface(timer_interface);
 }
 
 void MclNode::mapCb(nav_msgs::msg::OccupancyGrid::ConstSharedPtr msg)
@@ -76,10 +93,40 @@ void MclNode::publishParticles()
     particles_pub_->publish(msg);
 }
 
+bool MclNode::getOdom(float &x, float &y, float &t)
+{
+	geometry_msgs::msg::PoseStamped ident;
+	ident.header.frame_id = "base_footprint";
+	ident.header.stamp = rclcpp::Time(0);
+	tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
+
+	geometry_msgs::msg::PoseStamped odom_pose;
+	try {
+		this->tf_buffer_->transform(ident, odom_pose, "odom");
+	} catch (tf2::TransformException & e) {
+		RCLCPP_WARN(
+		  get_logger(), "Failed to compute odom pose, skipping scan (%s)", e.what());
+		return false;
+	}
+
+	x = odom_pose.pose.position.x;
+	y = odom_pose.pose.position.y;
+	t = tf2::getYaw(odom_pose.pose.orientation);
+	return true;
+}
+
 void MclNode::loop()
 {
     if(init_map_ && init_mcl_){
         publishParticles();
+
+        float mx, my, mt;
+        mcl_->meanParticles(mx, my, mt);
+        geometry_msgs::msg::TransformStamped t;
+        t.header.stamp = this->get_clock()->now();
+        t.header.frame_id = "map";
+        t.child_frame_id = "raspicat";
+        
     }
 }
 

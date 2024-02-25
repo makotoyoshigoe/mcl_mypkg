@@ -2,3 +2,4 @@
   ros__parameters:
     likelihood_range: 0.2
     particle_num: 500
+    motion_noises: [0.5, 0.2, 0.13, 0.05]
